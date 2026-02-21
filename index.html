@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منظومة الجرد - الهيئة العامة لرصد المحتوى الإعلامي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com');
+        :root { --royal-blue: #002366; --gold-primary: #b8860b; }
+        body { font-family: 'Noto Sans Arabic', sans-serif; background-color: #f1f5f9; }
+        .royal-header { background: linear-gradient(135deg, var(--royal-blue) 0%, #001a4d 100%); border-bottom: 5px solid var(--gold-primary); }
+        .gold-text { background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #aa771c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .btn-action { transition: all 0.2s ease; }
+        .btn-action:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
+        .locked-row { background-color: #f8fafc !important; opacity: 0.8; }
+        input:disabled { background-color: transparent; color: #1e293b; border: none; font-weight: bold; }
+        .status-pill { padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="royal-header text-white p-8 rounded-3xl shadow-2xl mb-8 text-center relative overflow-hidden">
+            <div id="lock-banner" class="hidden absolute top-0 left-0 w-full bg-red-600 text-white text-xs py-1 font-bold">تنبيه: تم اعتماد هذا الكشف نهائياً - التعديل مغلق</div>
+            <h1 class="text-3xl font-bold mb-2 gold-text">الهيئة العامة لرصد المحتوى الإعلامي</h1>
+            <p class="text-lg opacity-90">نظام المطابقة والجرد الرقمي - رصيد أول المدة 2025</p>
+            <div class="mt-4 flex justify-center items-center gap-3">
+                <span id="save-status" class="bg-white/10 px-4 py-1 rounded-full text-xs">نظام جاهز</span>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border-r-4 border-blue-900">
+                <p class="text-gray-400 text-xs">إجمالي الأصناف</p>
+                <h3 id="stat-count" class="text-2xl font-bold text-blue-900">0</h3>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border-r-4 border-red-500">
+                <p class="text-gray-400 text-xs">إجمالي العجز</p>
+                <h3 id="stat-deficit" class="text-2xl font-bold text-red-600">0</h3>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border-r-4 border-green-500">
+                <p class="text-gray-400 text-xs">إجمالي الفائض</p>
+                <h3 id="stat-surplus" class="text-2xl font-bold text-green-600">0</h3>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border-r-4 border-yellow-500">
+                <p class="text-gray-400 text-xs">حالة الاعتماد</p>
+                <h3 id="stat-lock" class="text-lg font-bold text-yellow-600">قيد التعديل</h3>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="bg-white rounded-3xl shadow-lg border border-gray-200 overflow-hidden">
+            <div class="p-5 bg-gray-50 border-b flex flex-wrap justify-between items-center gap-4">
+                <div class="flex items-center gap-3"><div class="w-2 h-6 bg-blue-900 rounded-full"></div><h2 class="font-bold text-blue-900">سجل جرد الأصناف</h2></div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="add-btn" onclick="addNewItem()" class="btn-action bg-blue-900 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">+ إضافة صنف</button>
+                    <button onclick="exportToExcel()" class="btn-action bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">📊 Excel</button>
+                    <button id="report-btn" onclick="generateWordReport()" class="btn-action bg-gray-800 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md">📝 تقرير Word</button>
+                    <button id="lock-btn" onclick="toggleSystemLock()" class="btn-action bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md"><span id="lock-icon">🔒</span> <span id="lock-text">اعتماد</span></button>
+                    <button onclick="resetSystem()" class="btn-action bg-gray-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold border border-red-100">تصفير</button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="bg-blue-900 text-white text-[11px] uppercase">
+                            <th class="p-4 text-center w-12 border-l border-blue-800">ت</th>
+                            <th class="p-4 text-right">اسم الصنف الكامل</th>
+                            <th class="p-4 text-center">الرصيد الدفتري</th>
+                            <th class="p-4 text-center">رصيد اللجنة</th>
+                            <th class="p-4 text-center bg-blue-800">الرصيد الفعلي</th>
+                            <th class="p-4 text-center">الفارق</th>
+                            <th class="p-4 text-center">الحالة</th>
+                            <th class="p-4 text-center w-16">حذف</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+                <div id="empty-msg" class="hidden p-16 text-center text-gray-400">📂 لا توجد أصناف حالياً</div>
+            </div>
+        </div>
+
+        <!-- Footer المصمم -->
+        <footer class="mt-12 pb-6 text-center">
+            <div class="inline-flex flex-col items-center">
+                <div class="w-16 h-1 bg-gradient-to-r from-transparent via-gold-primary to-transparent mb-4 opacity-50"></div>
+                <p class="text-gray-500 text-xs tracking-widest uppercase">تطوير وتصميم المهندس</p>
+                <h4 class="text-blue-900 font-bold text-lg mt-1">فتحي الترهوني</h4>
+                <p class="text-[10px] text-gray-400 mt-1">© 2025 جميع الحقوق محفوظة للهيئة العامة لرصد المحتوى الإعلامي</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const DATA_KEY = 'GMRC_DATA_2025';
+        const LOCK_KEY = 'GMRC_LOCK_2025';
+        let inventoryData = JSON.parse(localStorage.getItem(DATA_KEY)) || [];
+        let systemLocked = localStorage.getItem(LOCK_KEY) === 'true';
+
+        function saveData() {
+            if (systemLocked) return;
+            localStorage.setItem(DATA_KEY, JSON.stringify(inventoryData));
+            calculateGlobalStats();
+        }
+
+        function addNewItem() {
+            if (systemLocked) return;
+            inventoryData.push({ id: Date.now(), name: "", bookBalance: 0, committeeBalance: 0, physicalBalance: 0 });
+            renderTable();
+            saveData();
+        }
+
+        function updateItem(id, field, value) {
+            const index = inventoryData.findIndex(i => i.id === id);
+            if (index === -1) return;
+
+            if (field === 'name') {
+                const cleanVal = value.trim();
+                if (inventoryData.some(i => i.id !== id && i.name === cleanVal && cleanVal !== "")) {
+                    alert("⚠️ هذا الصنف مسجل مسبقاً!");
+                    renderTable();
+                    return;
+                }
+                inventoryData[index].name = cleanVal;
+            } else {
+                inventoryData[index][field] = parseFloat(value) || 0;
+            }
+            saveData();
+            renderTable();
+        }
+
+        function deleteItem(id) {
+            if (systemLocked) return;
+            if (confirm("هل تريد حذف الصنف؟")) {
+                inventoryData = inventoryData.filter(i => i.id !== id);
+                saveData();
+                renderTable();
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            document.getElementById('empty-msg').classList.toggle('hidden', inventoryData.length > 0);
+
+            inventoryData.forEach((item, index) => {
+                const diff = item.physicalBalance - item.bookBalance;
+                const status = diff === 0 ? "متطابق" : (diff > 0 ? "فائض" : "عجز");
+                const row = document.createElement('tr');
+                row.className = `border-b ${systemLocked ? 'locked-row' : 'hover:bg-gray-50'}`;
+                row.innerHTML = `
+                    <td class="p-4 text-center font-bold text-gray-400">${index+1}</td>
+                    <td class="p-2"><input type="text" value="${item.name}" onchange="updateItem(${item.id}, 'name', this.value)" class="w-full p-1" ${systemLocked?'disabled':''}></td>
+                    <td class="p-2"><input type="number" value="${item.bookBalance}" onchange="updateItem(${item.id}, 'bookBalance', this.value)" class="w-full text-center" ${systemLocked?'disabled':''}></td>
+                    <td class="p-2"><input type="number" value="${item.committeeBalance}" onchange="updateItem(${item.id}, 'committeeBalance', this.value)" class="w-full text-center" ${systemLocked?'disabled':''}></td>
+                    <td class="p-2 bg-blue-50"><input type="number" value="${item.physicalBalance}" onchange="updateItem(${item.id}, 'physicalBalance', this.value)" class="w-full text-center font-bold bg-transparent" ${systemLocked?'disabled':''}></td>
+                    <td class="p-4 text-center font-bold ${diff<0?'text-red-600':'text-green-600'}">${diff}</td>
+                    <td class="p-4 text-center"><span class="status-pill ${diff===0?'bg-green-100 text-green-700':(diff>0?'bg-blue-100 text-blue-700':'bg-red-100 text-red-700')}">${status}</span></td>
+                    <td class="p-4 text-center"><button onclick="deleteItem(${item.id})" class="text-red-300 hover:text-red-600" ${systemLocked?'disabled':''}>🗑️</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+            calculateGlobalStats();
+        }
+
+        function calculateGlobalStats() {
+            let def = 0, sur = 0;
+            inventoryData.forEach(i => {
+                let d = i.physicalBalance - i.bookBalance;
+                if (d < 0) def += Math.abs(d); else sur += d;
+            });
+            document.getElementById('stat-count').innerText = inventoryData.length;
+            document.getElementById('stat-deficit').innerText = def;
+            document.getElementById('stat-surplus').innerText = sur;
+            document.getElementById('stat-lock').innerText = systemLocked ? 'معتمد' : 'قيد التعديل';
+            document.getElementById('stat-lock').className = `text-lg font-bold ${systemLocked?'text-red-600':'text-yellow-600'}`;
+        }
+
+        function toggleSystemLock() {
+            if (!systemLocked) {
+                if (confirm("هل تود اعتماد الترحيل؟ سيتم قفل البيانات.")) {
+                    systemLocked = true; localStorage.setItem(LOCK_KEY, 'true');
+                    document.getElementById('lock-banner').classList.remove('hidden');
+                }
+            } else {
+                if (prompt("أدخل رمز فك القفل (1234):") === '1234') {
+                    systemLocked = false; localStorage.setItem(LOCK_KEY, 'false');
+                    document.getElementById('lock-banner').classList.add('hidden');
+                }
+            }
+            renderTable();
+            location.reload();
+        }
+
+        function generateWordReport() {
+            if (!systemLocked) return alert("يجب اعتماد الكشف أولاً!");
+            let rows = inventoryData.map((item, i) => `<tr><td>${i+1}</td><td>${item.name}</td><td>${item.physicalBalance}</td><td>رصيد افتتاح 2025</td></tr>`).join('');
+            const html = `<html dir="rtl"><body style="font-family:Arial; text-align:right;">
+                <h2 style="text-align:center;">تقرير رصيد أول المدة 2025</h2>
+                <h3 style="text-align:center;">الهيئة العامة لرصد المحتوى الإعلامي</h3>
+                <table border="1" style="width:100%; border-collapse:collapse;">
+                    <thead><tr style="background:#eee;"><th>ت</th><th>اسم الصنف</th><th>الكمية المرحلة</th><th>ملاحظات</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <p>تم استخراج التقرير بواسطة: فتحي الترهوني</p>
+                </body></html>`;
+            const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "تقرير_2025.doc";
+            link.click();
+        }
+
+        function exportToExcel() {
+            const ws = XLSX.utils.json_to_sheet(inventoryData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "الجرد");
+            XLSX.writeFile(wb, "جرد_2025.xlsx");
+        }
+
+        function resetSystem() { if (confirm("تصفير كامل؟")) { localStorage.clear(); location.reload(); } }
+
+        if (systemLocked) document.getElementById('lock-banner').classList.remove('hidden');
+        renderTable();
+    </script>
+</body>
+</html>
